@@ -2,7 +2,7 @@
 FROM node:20-slim
 
 # Set the working directory inside the container
-WORKDIR /usr/src/app
+WORKDIR /app
 
 # Copy package files first to leverage Docker's cache
 COPY package*.json ./
@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 3000
 
 # Start the application
-CMD ["nodemon", "index.js"]
+CMD ["node", "index.js"]
