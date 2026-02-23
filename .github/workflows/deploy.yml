@@ -1,8 +1,10 @@
-name: DEploy nodejs applicaton 
+name: Deploy nodejs application 
 
 on: 
   push:
+    # Trigger on main branch OR when a version tag is pushed
     branches: [ main ]
+    tags: [ 'v*' ] 
 
 jobs:
   deploy:
@@ -10,20 +12,35 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v1
+      uses: docker/setup-buildx-action@v3
 
     - name: Log in to Docker Hub
-      uses: docker/login-action@v1
+      uses: docker/login-action@v3
       with:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
+    # This step extracts the version from your Git Tag
+    - name: Docker meta
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ secrets.DOCKER_USERNAME }}/simple-node-app
+        tags: |
+          # If you push tag v1.2.3, this creates tags: v1.2.3, v1.2, and v1
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=semver,pattern={{major}}
+          # Also keeps the 'latest' tag for convenience
+          type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
     - name: Build and push Docker image
-      uses: docker/build-push-action@v2
+      uses: docker/build-push-action@v5
       with:
         context: .
         push: true
-        tags: ${{ secrets.DOCKER_USERNAME }}/simple-node-app:latest
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
