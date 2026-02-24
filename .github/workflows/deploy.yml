@@ -1,8 +1,53 @@
-name: Deploy nodejs application 
+# name: Deploy nodejs application 
+
+# on: 
+#   push:
+#     # Trigger on main branch OR when a version tag is pushed
+#     branches: [ main ]
+#     tags: [ 'v*' ] 
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#     - name: Checkout code
+#       uses: actions/checkout@v4
+
+#     - name: Set up Docker Buildx
+#       uses: docker/setup-buildx-action@v3
+
+#     - name: Log in to Docker Hub
+#       uses: docker/login-action@v3
+#       with:
+#         username: ${{ secrets.DOCKER_USERNAME }}
+#         password: ${{ secrets.DOCKER_PASSWORD }}
+
+#     # This step extracts the version from your Git Tag
+#     - name: Docker meta
+#       id: meta
+#       uses: docker/metadata-action@v5
+#       with:
+#         images: ${{ secrets.DOCKER_USERNAME }}/simple-node-app
+#         tags: |
+#           # If you push tag v1.2.3, this creates tags: v1.2.3, v1.2, and v1
+#           type=semver,pattern={{version}}
+#           type=semver,pattern={{major}}.{{minor}}
+#           type=semver,pattern={{major}}
+#           # Also keeps the 'latest' tag for convenience
+#           type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+#     - name: Build and push Docker image
+#       uses: docker/build-push-action@v5
+#       with:
+#         context: .
+#         push: true
+#         tags: ${{ steps.meta.outputs.tags }}
+#         labels: ${{ steps.meta.outputs.labels }}
+name: Deploy nodejs application to Harbor
 
 on: 
   push:
-    # Trigger on main branch OR when a version tag is pushed
     branches: [ main ]
     tags: [ 'v*' ] 
 
@@ -17,24 +62,26 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Log in to Docker Hub
+    # 1. Login to Harbor instead of Docker Hub
+    - name: Log in to Harbor
       uses: docker/login-action@v3
       with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        # Use your Harbor URL (e.g., harbor.yourdomain.com)
+        registry: ${{ secrets.HARBOR_URL }} 
+        username: ${{ secrets.HARBOR_USERNAME }}
+        password: ${{ secrets.HARBOR_PASSWORD }}
 
-    # This step extracts the version from your Git Tag
+    # 2. Extract Metadata for Harbor
     - name: Docker meta
       id: meta
       uses: docker/metadata-action@v5
       with:
-        images: ${{ secrets.DOCKER_USERNAME }}/simple-node-app
+        # FORMAT: harbor.com/project_name/repo_name
+        images: ${{ secrets.HARBOR_URL }}/my-project/simple-node-app
         tags: |
-          # If you push tag v1.2.3, this creates tags: v1.2.3, v1.2, and v1
           type=semver,pattern={{version}}
           type=semver,pattern={{major}}.{{minor}}
           type=semver,pattern={{major}}
-          # Also keeps the 'latest' tag for convenience
           type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
 
     - name: Build and push Docker image
@@ -42,5 +89,6 @@ jobs:
       with:
         context: .
         push: true
+        # This now uses the Harbor tags generated above
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
