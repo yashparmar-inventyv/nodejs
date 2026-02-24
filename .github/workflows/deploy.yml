@@ -95,35 +95,67 @@
 #         tags: ${{ steps.meta.outputs.tags }}
 #         labels: ${{ steps.meta.outputs.labels }}
 
-name: Build Push Deploy
+name: Build Push Deploy to Harbor and Kubernetes
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
+
+    # -----------------------------------
+    # 1. Checkout source code
+    # -----------------------------------
     - name: Checkout code
       uses: actions/checkout@v3
 
-    - name: Login Harbor
-      run: docker login demo.goharbor.io -u yashparmar2055 -p Yash@2525
+    # -----------------------------------
+    # 2. Login to Harbor (URL from secret)
+    # -----------------------------------
+    - name: Login to Harbor
+      run: |
+        docker login ${{ secrets.HARBOR_URL }} \
+        -u ${{ secrets.HARBOR_USERNAME }} \
+        -p ${{ secrets.HARBOR_PASSWORD }}
 
-    - name: Build image
-      run: docker build -t demo.goharbor.io/demo/myapp:${{ github.sha }} .
+    # -----------------------------------
+    # 3. Build Docker Image
+    # -----------------------------------
+    - name: Build Docker image
+      run: |
+        docker build -t ${{ secrets.HARBOR_URL }}/demo/myapp:${{ github.sha }} .
 
-    - name: Push image
-      run: docker push demo.goharbor.io/demo/myapp:${{ github.sha }}
+    # -----------------------------------
+    # 4. Push Docker Image
+    # -----------------------------------
+    - name: Push Docker image
+      run: |
+        docker push ${{ secrets.HARBOR_URL }}/demo/myapp:${{ github.sha }}
 
+    # -----------------------------------
+    # 5. Configure Kubernetes access
+    # -----------------------------------
     - name: Set kubeconfig
       run: |
         mkdir -p ~/.kube
         echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
 
-    - name: Update Kubernetes Deployment (AUTO)
+    # -----------------------------------
+    # 6. Update Kubernetes Deployment
+    # -----------------------------------
+    - name: Update Kubernetes Deployment
       run: |
         kubectl set image deployment/myapp \
-        myapp=demo.goharbor.io/demo/myapp:${{ github.sha }}
+        myapp=${{ secrets.HARBOR_URL }}/demo/myapp:${{ github.sha }}
+
+    # -----------------------------------
+    # 7. Verify rollout
+    # -----------------------------------
+    - name: Verify rollout
+      run: |
+        kubectl rollout status deployment/myapp
