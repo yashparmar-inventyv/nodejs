@@ -44,12 +44,62 @@
 #         push: true
 #         tags: ${{ steps.meta.outputs.tags }}
 #         labels: ${{ steps.meta.outputs.labels }}
-name: Deploy nodejs application to Harbor
 
-on: 
+# ----------------2-------------------
+# name: Deploy nodejs application to Harbor
+
+# on: 
+#   push:
+#     branches: [ main ]
+#     tags: [ 'v*' ] 
+
+# jobs:
+#   deploy:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#     - name: Checkout code
+#       uses: actions/checkout@v4
+
+#     - name: Set up Docker Buildx
+#       uses: docker/setup-buildx-action@v3
+
+#     # 1. Login to Harbor instead of Docker Hub
+#     - name: Log in to Harbor
+#       uses: docker/login-action@v3
+#       with:
+#         # Use your Harbor URL (e.g., harbor.yourdomain.com)
+#         registry: ${{ secrets.HARBOR_URL }} 
+#         username: ${{ secrets.HARBOR_USERNAME }}
+#         password: ${{ secrets.HARBOR_PASSWORD }}
+
+#     # 2. Extract Metadata for Harbor
+#     - name: Docker meta
+#       id: meta
+#       uses: docker/metadata-action@v5
+#       with:
+#         # FORMAT: harbor.com/project_name/repo_name
+#         images: ${{ secrets.HARBOR_URL }}/demo/simple-node-app
+#         tags: |
+#           type=semver,pattern={{version}}
+#           type=semver,pattern={{major}}.{{minor}}
+#           type=semver,pattern={{major}}
+#           type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+
+#     - name: Build and push Docker image
+#       uses: docker/build-push-action@v5
+#       with:
+#         context: .
+#         push: true
+#         # This now uses the Harbor tags generated above
+#         tags: ${{ steps.meta.outputs.tags }}
+#         labels: ${{ steps.meta.outputs.labels }}
+
+name: Build Push Deploy
+
+on:
   push:
     branches: [ main ]
-    tags: [ 'v*' ] 
 
 jobs:
   deploy:
@@ -57,38 +107,23 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+    - name: Login Harbor
+      run: docker login demo.goharbor.io -u yashparmar2055 -p Yash@2525
 
-    # 1. Login to Harbor instead of Docker Hub
-    - name: Log in to Harbor
-      uses: docker/login-action@v3
-      with:
-        # Use your Harbor URL (e.g., harbor.yourdomain.com)
-        registry: ${{ secrets.HARBOR_URL }} 
-        username: ${{ secrets.HARBOR_USERNAME }}
-        password: ${{ secrets.HARBOR_PASSWORD }}
+    - name: Build image
+      run: docker build -t demo.goharbor.io/demo/myapp:${{ github.sha }} .
 
-    # 2. Extract Metadata for Harbor
-    - name: Docker meta
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        # FORMAT: harbor.com/project_name/repo_name
-        images: ${{ secrets.HARBOR_URL }}/demo/simple-node-app
-        tags: |
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=semver,pattern={{major}}
-          type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+    - name: Push image
+      run: docker push demo.goharbor.io/demo/myapp:${{ github.sha }}
 
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        # This now uses the Harbor tags generated above
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
+    - name: Set kubeconfig
+      run: |
+        mkdir -p ~/.kube
+        echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
+
+    - name: Update Kubernetes Deployment (AUTO)
+      run: |
+        kubectl set image deployment/myapp \
+        myapp=demo.goharbor.io/demo/myapp:${{ github.sha }}
