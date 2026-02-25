@@ -27,8 +27,8 @@ jobs:
 
     - name: Docker login
       run: |
-        docker login ${{secrets.Harbor_URL}}
-        -u ${{secrets.Harbor_USERNAME}}
+        docker login ${{secrets.Harbor_URL}} \
+        -u ${{secrets.Harbor_USERNAME}} \
         -p ${{secrets.Harbor_PASSWORD}}
     
     - name: Build and push Docker image
